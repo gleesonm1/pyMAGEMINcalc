@@ -21,7 +21,7 @@ def findLiq(P_bar = None, T_C_init = None, comp = None, fO2_buffer = None, fO2_o
         Input oxide values required for the calculations.
 
     Returns:
-    ----------
+    ---------
     T_Liq_C: np.ndarray
         Array of liquidus temperatures.
 
