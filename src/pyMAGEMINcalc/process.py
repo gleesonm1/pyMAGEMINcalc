@@ -52,6 +52,12 @@ def findLiq(P_bar = None, T_C_init = None, comp = None, fO2_buffer = None, fO2_o
 
     T = T_C_init
 
+    if type(T) == int:
+        T = float(T)
+
+    if type(P_bar) == int:
+        P_bar = float(P_bar)
+
     bulk_in = bulk.copy()
 
     Liq = ["liq","fl"]
