@@ -5,6 +5,47 @@ import julia
 import time
 from julia import MAGEMinCalc
 
+def equilibrate(Model = None, P_bar = None, T_C = None, comp = None, fO2_buffer = None, fO2_offset = None):
+    Results = pd.DataFrame()
+
+    if comp is None:
+        raise Exception("No composition specified")
+
+    if comp is None:
+        raise Exception("No composition specified")
+    else:
+        if fO2_buffer is not None:
+            new_bulk = pd.DataFrame(comp, index = [0])
+            new_bulk['Sample_ID_Liq'] = 0
+            if fO2_offset is not None:
+                new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = 1400+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
+            else:
+                new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = 1400+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
+
+            comp = new[list(comp.keys())].loc[0].to_dict()
+
+        bulk = [comp['SiO2_Liq'], comp['Al2O3_Liq'], comp['CaO_Liq'], comp['MgO_Liq'], comp['FeOt_Liq'], comp['K2O_Liq'], comp['Na2O_Liq'], comp['TiO2_Liq'], comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*comp['FeOt_Liq'] - comp['FeOt_Liq']), comp['Cr2O3_Liq'], comp['H2O_Liq']]
+
+    if type(T_C) == int:
+        T_C = float(T_C)
+    if type(P_bar) == int:
+        P_bar = float(P_bar)
+
+    try:
+        Ret = MAGEMinCalc.satPhase(P_bar/1000, T_C, bulk)
+    except:
+        return Results
+
+    PhaseList = Ret['Phase']
+
+    Results = pd.DataFrame(columns = ['T_C', 'P_bar'] + PhaseList, data = np.zeros((1, len(['T_C', 'P_bar'] + PhaseList))))
+    Results['T_C'] = T_C
+    Results['P_bar'] = P_bar
+    for p in PhaseList:
+        Results[p] = 'Y'
+
+    return Results
+
 def findLiq(P_bar = None, T_C_init = None, comp = None, fO2_buffer = None, fO2_offset = None):
     '''
     Perform a single find liquidus calculation in MELTS. WARNING! Running this function directly from the command land/jupyter notebook will initiate the MELTS C library in the main python process. Once this has been initiated the MELTS C library cannot be re-loaded and failures during the calculation will likely cause a terminal error to occur.
@@ -337,3 +378,95 @@ melt
             bulk = bulk_in
 
     return Results
+
+# def phaseSat(comp = None, phases = None, T_initial_C = None, T_step_C = None, dt_C = None, P_bar = None, H2O_Liq = None, fO2_buffer = None, fO2_offset = None):
+#     '''
+#     Perform a single crystallisation calculation in MELTS. WARNING! Running this function directly from the command land/jupyter notebook will initiate the MELTS C library in the main python process. Once this has been initiated the MELTS C library cannot be re-loaded and failures during the calculation will likely cause a terminal error to occur.
+#
+#     Parameters:
+#     ----------
+#     comp: list or dict
+#         Input oxide values required for the calculations.
+#
+#     phases: list
+#         phases of interest
+#
+#     T_initial_C: float
+#         Initial temperature used for liquidus calculations.
+#
+#     T_step_C: float
+#         Temperature step at each point of the model.
+#
+#     dt_C: float
+#         Total temperature change allowed in the model.
+#
+#     P_bar: float
+#         Pressure of the calculation.
+#
+#     Returns:
+#     ----------
+#     Results: Dict
+#         Dict containing a float for each saturation temperature found and the T_Liq and melt H2O values.
+#
+#     '''
+#     Results = {'a_sat': np.nan, 'b_sat': np.nan, 'c_sat': np.nan, 'T_Liq': np.nan}
+#     if len(phases) == 2:
+#         del Results['c_sat']
+#
+#     bulk = [comp['SiO2_Liq'], comp['TiO2_Liq'], comp['Al2O3_Liq'], comp['Fe3Fet_Liq']*((159.59/2)/71.844)*comp['FeOt_Liq'], 0.0, (1- comp['Fe3Fet_Liq'])*comp['FeOt_Liq'], comp['MnO_Liq'], comp['MgO_Liq'], 0.0, 0.0, comp['CaO_Liq'], comp['Na2O_Liq'], comp['K2O_Liq'], comp['P2O5_Liq'], comp['H2O_Liq'], comp['CO2_Liq'], 0.0, 0.0, 0.0]
+#     bulk = list(100*np.array(bulk)/np.sum(bulk))
+#
+#     try:
+#         Results['T_Liq'] = findLiq(P_bar = P_bar, comp = comp, T_C_init = T_initial_C, fO2_buffer = fO2_buffer, fO2_offset = fO2_offset)
+#     except:
+#         return Results
+#
+#     if type(H2O_Liq) == np.ndarray:
+#         if Results['H2O_melt'] < 0.99*bulk[14]:
+#             return Results
+#
+#
+#     T = Results['T_Liq']
+#     T_final = T - dt_C
+#     while T >= T_final:
+#         melts = melts.addNodeAfter()
+#         melts.engine.setBulkComposition(bulk)
+#         melts.engine.pressure = P_bar
+#         melts.engine.temperature = T
+#
+#         try:
+#             melts.engine.calcEquilibriumState(1,0)
+#         except:
+#             return Results
+#
+#         PhaseList = melts.engine.solidNames
+#         print(PhaseList)
+#         try:
+#             if 'tridymite1' in PhaseList:
+#                 PhaseList = ['quartz1'] + PhaseList
+#             if 'clinopyroxene2' in PhaseList:
+#                 PhaseList = ['orthopyroxene1'] + PhaseList
+#
+#             if phases[0] in PhaseList and np.isnan(Results['a_sat']):# == 0:
+#                 Results['a_sat'] = melts.engine.temperature
+#
+#             if phases[1] in PhaseList and np.isnan(Results['b_sat']):# == 0:
+#                 Results['b_sat'] = melts.engine.temperature
+#
+#             if len(phases) == 3:
+#                 if phases[2] in PhaseList and np.isnan(Results['c_sat']):# == 0:
+#                     Results['c_sat'] = melts.engine.temperature
+#
+#                 if ~np.isnan(Results['a_sat']) and ~np.isnan(Results['b_sat']) and ~np.isnan(Results['c_sat']):# > 0:
+#                     break
+#
+#             if len(phases) == 2:
+#                 if ~np.isnan(Results['a_sat']) and ~np.isnan(Results['b_sat']):# > 0:
+#                     break
+#
+#             T = T - T_step_C
+#         except:
+#             T = T - T_step_C
+#
+#
+#     return Results
