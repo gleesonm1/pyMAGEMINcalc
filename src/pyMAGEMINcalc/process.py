@@ -32,7 +32,7 @@ def equilibrate(Model = None, P_bar = None, T_C = None, comp = None, fO2_buffer 
         P_bar = float(P_bar)
 
     try:
-        Ret = MAGEMinCalc.satPhase(P_bar/1000, T_C, bulk)
+        Ret = MAGEMinCalc.PT_minimisation(P_bar/1000, T_C, bulk)
     except:
         return Results
 
