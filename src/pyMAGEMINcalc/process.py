@@ -37,6 +37,7 @@ def equilibrate(Model = None, P_bar = None, T_C = None, comp = None, fO2_buffer 
         return Results
 
     PhaseList = Ret['Phase']
+    PhaseList = list(np.unique(PhaseList))
 
     Results = pd.DataFrame(columns = ['T_C', 'P_bar'] + PhaseList, data = np.zeros((1, len(['T_C', 'P_bar'] + PhaseList))))
     Results['T_C'] = T_C
