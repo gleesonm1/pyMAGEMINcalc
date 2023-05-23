@@ -3,6 +3,8 @@ import pandas as pd
 import Thermobar as pt
 import julia
 import time
+import pyMelt as m
+from scipy.optimize import fsolve
 from julia import MAGEMinCalc
 
 def equilibrate(Model = None, P_bar = None, T_C = None, comp = None, fO2_buffer = None, fO2_offset = None):
@@ -18,9 +20,9 @@ def equilibrate(Model = None, P_bar = None, T_C = None, comp = None, fO2_buffer 
             new_bulk = pd.DataFrame(comp, index = [0])
             new_bulk['Sample_ID_Liq'] = 0
             if fO2_offset is not None:
-                new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = 1400+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
+                new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T_C+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
             else:
-                new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = 1400+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
+                new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T_C+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
 
             comp = new[list(comp.keys())].loc[0].to_dict()
 
@@ -47,7 +49,7 @@ def equilibrate(Model = None, P_bar = None, T_C = None, comp = None, fO2_buffer 
 
     return Results
 
-def findLiq(P_bar = None, T_C_init = None, comp = None, fO2_buffer = None, fO2_offset = None):
+def findLiq(P_bar = None, T_C_init = None, comp = None): #, fO2_buffer = None, fO2_offset = None):
     '''
     Perform a single find liquidus calculation in MELTS. WARNING! Running this function directly from the command land/jupyter notebook will initiate the MELTS C library in the main python process. Once this has been initiated the MELTS C library cannot be re-loaded and failures during the calculation will likely cause a terminal error to occur.
 
@@ -77,95 +79,100 @@ def findLiq(P_bar = None, T_C_init = None, comp = None, fO2_buffer = None, fO2_o
 
     if comp is None:
         raise Exception("No composition specified")
-    else:
-        if fO2_buffer is not None:
-            new_bulk = pd.DataFrame(comp, index = [0])
-            new_bulk['Sample_ID_Liq'] = 0
-            if fO2_offset is not None:
-                new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T_C_init+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
-            else:
-                new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T_C_init+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
+    
+    T_Liq = MAGEMinCalc.findliq(comp, P_bar/1000, T_C_init)
+    return T_Liq
 
-            comp = new[list(comp.keys())].loc[0].to_dict()
+    # else:
+    #     if fO2_buffer is not None:
+    #         new_bulk = pd.DataFrame(comp, index = [0])
+    #         new_bulk['Sample_ID_Liq'] = 0
+    #         if fO2_offset is not None:
+    #             new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T_C_init+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
+    #         else:
+    #             new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T_C_init+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
 
-        bulk = [comp['SiO2_Liq'], comp['Al2O3_Liq'], comp['CaO_Liq'], comp['MgO_Liq'], comp['FeOt_Liq'], comp['K2O_Liq'], comp['Na2O_Liq'], comp['TiO2_Liq'], comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*comp['FeOt_Liq'] - comp['FeOt_Liq']), comp['Cr2O3_Liq'], comp['H2O_Liq']]
+    #         comp = new[list(comp.keys())].loc[0].to_dict()
 
-    T_Liq = 0
+    #     bulk = [comp['SiO2_Liq'], comp['Al2O3_Liq'], comp['CaO_Liq'], comp['MgO_Liq'], comp['FeOt_Liq'], comp['K2O_Liq'], comp['Na2O_Liq'], comp['TiO2_Liq'], comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*comp['FeOt_Liq'] - comp['FeOt_Liq']), comp['Cr2O3_Liq'], comp['H2O_Liq']]
 
-    T = T_C_init
+    # T_Liq = 0
 
-    if type(T) == int:
-        T = float(T)
+    # T = T_C_init
 
-    if type(P_bar) == int:
-        P_bar = float(P_bar)
+    # if type(T) == int:
+    #     T = float(T)
 
-    bulk_in = bulk.copy()
+    # if type(P_bar) == int:
+    #     P_bar = float(P_bar)
 
-    Liq = ["liq","fl"]
+    # bulk_in = bulk.copy()
 
-    start = time.time()
+    # Liq = ["liq","fl"]
 
-    PhaseList = MAGEMinCalc.satPhase(P_bar/1000, T, bulk)
+    # start = time.time()
 
-    i = set.intersection(set(Liq),set(PhaseList))
+    # Ret = MAGEMinCalc.PT_minimisation(P_bar/1000, T, bulk)
+    # PhaseList = Ret['sys']['Phase']
 
-    Step = np.array([3,1,0.1])
-    for k in range(len(Step)):
-        if len(i) == len(PhaseList):
-            while len(i) == len(PhaseList):
-                bulk = bulk_in.copy()
-                if time.time() - start > 60:
-                    return T_Liq
-                else:
-                    T = T - Step[k]
-                    if fO2_buffer is not None:
-                        new_bulk = pd.DataFrame(comp, index = [0])
-                        new_bulk['Sample_ID_Liq'] = 0
-                        if fO2_offset is not None:
-                            new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
-                        else:
-                            new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
+    # i = set.intersection(set(Liq),set(PhaseList))
 
-                        comp = new[list(comp.keys())].loc[0].to_dict()
+    # Step = np.array([3,1,0.1])
+    # for k in range(len(Step)):
+    #     if len(i) == len(PhaseList):
+    #         while len(i) == len(PhaseList):
+    #             bulk = bulk_in.copy()
+    #             if time.time() - start > 60:
+    #                 return T_Liq
+    #             else:
+    #                 T = T - Step[k]
+    #                 if fO2_buffer is not None:
+    #                     new_bulk = pd.DataFrame(comp, index = [0])
+    #                     new_bulk['Sample_ID_Liq'] = 0
+    #                     if fO2_offset is not None:
+    #                         new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
+    #                     else:
+    #                         new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
 
-                        bulk = [comp['SiO2_Liq'], comp['Al2O3_Liq'], comp['CaO_Liq'], comp['MgO_Liq'], comp['FeOt_Liq'], comp['K2O_Liq'], comp['Na2O_Liq'], comp['TiO2_Liq'], comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*comp['FeOt_Liq'] - comp['FeOt_Liq']), comp['Cr2O3_Liq'], comp['H2O_Liq']]
+    #                     comp = new[list(comp.keys())].loc[0].to_dict()
 
-                    Ret = MAGEMinCalc.satPhase(P_bar/1000, T, bulk)
-                    PhaseList = Ret['Phase']
-                    i = set.intersection(set(Liq),set(PhaseList))
+    #                     bulk = [comp['SiO2_Liq'], comp['Al2O3_Liq'], comp['CaO_Liq'], comp['MgO_Liq'], comp['FeOt_Liq'], comp['K2O_Liq'], comp['Na2O_Liq'], comp['TiO2_Liq'], comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*comp['FeOt_Liq'] - comp['FeOt_Liq']), comp['Cr2O3_Liq'], comp['H2O_Liq']]
 
-        if len(i) < len(PhaseList):
-            while len(i) < len(PhaseList):
-                bulk = bulk_in.copy()
-                if time.time() - start > 60:
-                    return T_Liq
-                else:
-                    T = T + Step[k]
-                    if fO2_buffer is not None:
-                        new_bulk = pd.DataFrame(comp, index = [0])
-                        new_bulk['Sample_ID_Liq'] = 0
-                        if fO2_offset is not None:
-                            new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
-                        else:
-                            new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
+    #                 Ret = MAGEMinCalc.PT_minimisation(P_bar/1000, T, bulk)
+    #                 PhaseList = Ret['sys']['Phase']
+    #                 i = set.intersection(set(Liq),set(PhaseList))
 
-                        comp = new[list(comp.keys())].loc[0].to_dict()
+    #     if len(i) < len(PhaseList):
+    #         while len(i) < len(PhaseList):
+    #             bulk = bulk_in.copy()
+    #             if time.time() - start > 60:
+    #                 return T_Liq
+    #             else:
+    #                 T = T + Step[k]
+    #                 if fO2_buffer is not None:
+    #                     new_bulk = pd.DataFrame(comp, index = [0])
+    #                     new_bulk['Sample_ID_Liq'] = 0
+    #                     if fO2_offset is not None:
+    #                         new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
+    #                     else:
+    #                         new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
 
-                        bulk = [comp['SiO2_Liq'], comp['Al2O3_Liq'], comp['CaO_Liq'], comp['MgO_Liq'], comp['FeOt_Liq'], comp['K2O_Liq'], comp['Na2O_Liq'], comp['TiO2_Liq'], comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*comp['FeOt_Liq'] - comp['FeOt_Liq']), comp['Cr2O3_Liq'], comp['H2O_Liq']]
+    #                     comp = new[list(comp.keys())].loc[0].to_dict()
 
-                    Ret = MAGEMinCalc.satPhase(P_bar/1000, T, bulk)
-                    PhaseList = Ret['Phase']
-                    i = set.intersection(set(Liq),set(PhaseList))
+    #                     bulk = [comp['SiO2_Liq'], comp['Al2O3_Liq'], comp['CaO_Liq'], comp['MgO_Liq'], comp['FeOt_Liq'], comp['K2O_Liq'], comp['Na2O_Liq'], comp['TiO2_Liq'], comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*comp['FeOt_Liq'] - comp['FeOt_Liq']), comp['Cr2O3_Liq'], comp['H2O_Liq']]
 
-    if "liq" in Ret['Phase']:
-        if Ret['Liq_Frac'] < 0.9:
-            return T_Liq
-        else:
-            T_Liq = T
-            return T_Liq
-    else:
-        return T_Liq
+    #                 Ret = MAGEMinCalc.PT_minimisation(P_bar/1000, T, bulk)
+    #                 PhaseList = Ret['sys']['Phase']
+    #                 i = set.intersection(set(Liq),set(PhaseList))
+
+    # if "liq" in Ret['sys']['Phase']:
+    #     if Ret['liq']['Frac'] < 0.8:
+    #         return T_Liq
+    #     else:
+    #         T_Liq = T
+    #         return T_Liq
+    # else:
+        # return T_Liq
 
 
 def path(comp = None, Frac_solid = None, Frac_fluid = None, T_C = None, T_path_C = None, T_start_C = None, T_end_C = None, dt_C = None, P_bar = None, P_path_bar = None, P_start_bar = None, P_end_bar = None, dp_bar = None, find_liquidus = None, fO2_buffer = None, fO2_offset = None):
@@ -245,50 +252,50 @@ melt
 
     if comp is None:
         raise Exception("No composition specified")
-    else:
-        if fO2_buffer is not None:
-            new_bulk = pd.DataFrame(comp, index = [0])
-            new_bulk['Sample_ID_Liq'] = 0
-            if fO2_offset is not None:
-                new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = 1400+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
-            else:
-                new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = 1400+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
+    # else:
+        # if fO2_buffer is not None:
+        #     new_bulk = pd.DataFrame(comp, index = [0])
+        #     new_bulk['Sample_ID_Liq'] = 0
+        #     if fO2_offset is not None:
+        #         new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = 1400+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
+        #     else:
+        #         new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = 1400+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
 
-            comp = new[list(comp.keys())].loc[0].to_dict()
+        #     comp = new[list(comp.keys())].loc[0].to_dict()
 
-        bulk = [comp['SiO2_Liq'], comp['Al2O3_Liq'], comp['CaO_Liq'], comp['MgO_Liq'], comp['FeOt_Liq'], comp['K2O_Liq'], comp['Na2O_Liq'], comp['TiO2_Liq'], comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*comp['FeOt_Liq'] - comp['FeOt_Liq']), comp['Cr2O3_Liq'], comp['H2O_Liq']]
+    bulk = [comp['SiO2_Liq'], comp['Al2O3_Liq'], comp['CaO_Liq'], comp['MgO_Liq'], comp['FeOt_Liq'], comp['K2O_Liq'], comp['Na2O_Liq'], comp['TiO2_Liq'], comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*comp['FeOt_Liq'] - comp['FeOt_Liq']), comp['Cr2O3_Liq'], comp['H2O_Liq']]
 
     if find_liquidus is not None:
         if P_path_bar is not None:
             try:
                 if type(P_path_bar) == np.ndarray:
-                    T_Liq = findLiq(P_bar = P_path_bar[0], comp = comp, fO2_buffer = fO2_buffer, fO2_offset = fO2_offset, T_C_init = 1400.0)
+                    T_Liq = findLiq(P_bar = P_path_bar[0], comp = bulk, T_C_init = 1400.0)
                 else:
-                    T_Liq = findLiq(P_bar = P_path_bar, comp = comp, fO2_buffer = fO2_buffer, fO2_offset = fO2_offset, T_C_init = 1400.0)
+                    T_Liq = findLiq(P_bar = P_path_bar, comp = bulk, T_C_init = 1400.0)
             except:
                 return Results
         elif P_start_bar is not None:
             try:
-                T_Liq = findLiq(P_bar = P_start_bar, comp = comp, fO2_buffer = fO2_buffer, fO2_offset = fO2_offset, T_C_init = 1400.0)
+                T_Liq = findLiq(P_bar = P_start_bar, comp = bulk, T_C_init = 1400.0)
             except:
                 return Results
 
         T_start_C = T_Liq
 
-        if fO2_buffer is not None:
-            new_bulk = pd.DataFrame(comp, index = [0])
-            new_bulk['Sample_ID_Liq'] = 0
-            if fO2_offset is not None:
-                new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T_Liq+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
-            else:
-                new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T_Liq+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
+        # if fO2_buffer is not None:
+        #     new_bulk = pd.DataFrame(comp, index = [0])
+        #     new_bulk['Sample_ID_Liq'] = 0
+        #     if fO2_offset is not None:
+        #         new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T_Liq+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
+        #     else:
+        #         new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T_Liq+273.15, P_kbar = P_bar/1000, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
 
-            comp = new[list(comp.keys())].loc[0].to_dict()
+        #     comp = new[list(comp.keys())].loc[0].to_dict()
 
         bulk = [comp['SiO2_Liq'], comp['Al2O3_Liq'], comp['CaO_Liq'], comp['MgO_Liq'], comp['FeOt_Liq'], comp['K2O_Liq'], comp['Na2O_Liq'], comp['TiO2_Liq'], comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*comp['FeOt_Liq'] - comp['FeOt_Liq']), comp['Cr2O3_Liq'], comp['H2O_Liq']]
 
     if T_path_C is None:
-        if T_end_C is None and dt is None:
+        if T_end_C is None and dt_C is None:
             T = T_start_C
         elif T_end_C is not None and dt_C is not None:
             T = np.linspace(T_start_C, T_end_C, 1+round((T_start_C-T_end_C)/dt_C))
@@ -323,63 +330,152 @@ melt
                     T = T[T_Liq_loc-1:]
                     P = P[T_Liq_loc-1:]
 
-    if type(T) == np.ndarray:
-        length = len(T)
+    if type(T) == np.ndarray and type(P) != np.ndarray:
+        P = np.zeros(len(T)) + P
+    if type(P) == np.ndarray and type(T) != np.ndarray:
+        T = np.zeros(len(P)) + T
+
+    if Frac_solid is not None:
+        Results = MAGEMinCalc.path(bulk, T, P/1000, 1)
     else:
-        length = len(P)
+        Results = MAGEMinCalc.path(bulk, T, P/1000, 0)
 
-    Results['Conditions'] = pd.DataFrame(data = np.zeros((length, 2)), columns = ['temperature', 'pressure'])
-    Results['liq'] = pd.DataFrame(data = np.zeros((length, 11)), columns = ['SiO2_Liq', 'Al2O3_Liq', 'CaO_Liq', 'MgO_Liq', 'FeOt_Liq', 'K2O_Liq', 'Na2O_Liq', 'TiO2_Liq', 'O_Liq', 'Cr2O3_Liq', 'H2O_Liq'])
+    return Results
+    # if type(T) == np.ndarray:
+    #     length = len(T)
+    # else:
+    #     length = len(P)
 
-    if type(T) != np.ndarray:
-        T_in = T
-    if type(P) != np.ndarray:
-        P_in = P/1000
+    # Results['Conditions'] = pd.DataFrame(data = np.zeros((length, 3)), columns = ['temperature', 'pressure', 's'])
+    # Results['liq'] = pd.DataFrame(data = np.zeros((length, 11)), columns = ['SiO2', 'Al2O3', 'CaO', 'MgO', 'FeO', 'K2O', 'Na2O', 'TiO2', 'O', 'Cr2O3', 'H2O'])
+    # Results['liq_prop'] = pd.DataFrame(data = np.zeros((length, 1)), columns = ['mass'])
 
-    for i in range(length):
-        if type(T) == np.ndarray:
-            T_in = T[i]
-        if type(P) == np.ndarray:
-            P_in = P[i]/1000
+    # if type(T) != np.ndarray:
+    #     T_in = T
+    # if type(P) != np.ndarray:
+    #     P_in = P/1000
 
-        if fO2_buffer is not None:
-            new_comp = pd.DataFrame({'SiO2_Liq': bulk[0], 'Al2O3_Liq': bulk[1], 'CaO_Liq': bulk[2], 'MgO_Liq': bulk[3], 'FeOt_Liq': bulk[4], 'K2O_Liq': bulk[5], 'Na2O_Liq': bulk[6], 'TiO2_Liq': bulk[7], 'Cr2O3_Liq': bulk[9], 'H2O_Liq': bulk[10], 'Fe3Fet_Liq': 0.0}, index = [0])
-            new_bulk = new_comp.copy()
-            new_bulk['Sample_ID_Liq'] = 0
-            if fO2_offset is not None:
-                new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T_in+273.15, P_kbar = P_in, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
-            else:
-                new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T_in+273.15, P_kbar = P_in, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
+    # bulk_in = bulk.copy()
 
-            new_comp = new[list(new_comp.keys())].loc[0].to_dict()
+    # for i in range(length):
+    #     if type(T) == np.ndarray:
+    #         T_in = T[i]
+    #     if type(P) == np.ndarray:
+    #         P_in = P[i]/1000
 
-            bulk = [new_comp['SiO2_Liq'], new_comp['Al2O3_Liq'], new_comp['CaO_Liq'], new_comp['MgO_Liq'], new_comp['FeOt_Liq'], new_comp['K2O_Liq'], new_comp['Na2O_Liq'], new_comp['TiO2_Liq'], new_comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*new_comp['FeOt_Liq'] - new_comp['FeOt_Liq']), new_comp['Cr2O3_Liq'], new_comp['H2O_Liq']]
+    #     # print(T_in)
 
-        try:
-           Ret = MAGEMinCalc.satPhase(P_in, T_in, bulk)
-        except:
-            return Results
+    #     if fO2_buffer is not None:
+    #         new_comp = pd.DataFrame({'SiO2_Liq': bulk[0], 'Al2O3_Liq': bulk[1], 'CaO_Liq': bulk[2], 'MgO_Liq': bulk[3], 'FeOt_Liq': bulk[4], 'K2O_Liq': bulk[5], 'Na2O_Liq': bulk[6], 'TiO2_Liq': bulk[7], 'Cr2O3_Liq': bulk[9], 'H2O_Liq': bulk[10], 'Fe3Fet_Liq': 0.0}, index = [0])
+    #         new_bulk = new_comp.copy()
+    #         new_bulk['Sample_ID_Liq'] = 0
+    #         if fO2_offset is not None:
+    #             new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T_in+273.15, P_kbar = P_in, fo2 = fO2_buffer, fo2_offset = fO2_offset, model = "Kress1991", renorm = False)
+    #         else:
+    #             new = pt.convert_fo2_to_fe_partition(liq_comps = new_bulk, T_K = T_in+273.15, P_kbar = P_in, fo2 = fO2_buffer, model = "Kress1991", renorm = False)
 
-        for R in Results['Conditions']:
-            if R == 'temperature':
-                Results['Conditions'][R].loc[i] = T_in
-            elif R == 'pressure':
-                Results['Conditions'][R].loc[i] = P_in*1000
+    #         new_comp = new[list(new_comp.keys())].loc[0].to_dict()
 
-        A = dict(zip(Ret['Oxides'], Ret['Liq_Comp']))
-        for el in Results['liq']:
-            if el != 'FeOt_Liq':
-                Results['liq'][el].loc[i] = A[el[:-4]]
-            else:
-                Results['liq'][el].loc[i] = A['FeO']
+    #         bulk = [new_comp['SiO2_Liq'], new_comp['Al2O3_Liq'], new_comp['CaO_Liq'], new_comp['MgO_Liq'], new_comp['FeOt_Liq'], new_comp['K2O_Liq'], new_comp['Na2O_Liq'], new_comp['TiO2_Liq'], new_comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*new_comp['FeOt_Liq'] - new_comp['FeOt_Liq']), new_comp['Cr2O3_Liq'], new_comp['H2O_Liq']]
 
-        if Frac_solid is not None and Frac_fluid is not None:
-            bulk = np.array(Ret['Liq_Comp'])
-        else:
-            bulk = bulk_in
+    #     try:
+    #        Ret = MAGEMinCalc.PT_minimisation(P_in, T_in, bulk)
+    #     except:
+    #         return Results
+
+    #     PhaseList = Ret['sys']['Phase']
+    #     for phase in PhaseList:
+    #         if phase not in list(Results.keys()):
+    #             Results[phase] = pd.DataFrame(data = np.zeros((length, 11)), columns = ['SiO2', 'Al2O3', 'CaO', 'MgO', 'FeO', 'K2O', 'Na2O', 'TiO2', 'O', 'Cr2O3', 'H2O'])
+    #             Results[phase + '_prop'] = pd.DataFrame(data = np.zeros((length, 1)), columns = ['mass'])
+
+    #     for R in Results['Conditions']:
+    #         if R == 'temperature':
+    #             Results['Conditions'][R].loc[i] = T_in
+    #         elif R == 'pressure':
+    #             Results['Conditions'][R].loc[i] = P_in*1000
+    #         else:
+    #             Results['Conditions'][R].loc[i] = Ret['sys']['Entropy']
+
+    #     for p in PhaseList:
+    #         if "Comp" in list(Ret[p].keys()):
+    #             # A = dict(zip(['SiO2', 'Al2O3', 'CaO', 'MgO', 'FeO', 'Na2O', 'K2O', 'TiO2', 'O', 'Cr2O3', 'H2O'], Ret[p]['Comp']))
+    #             # print(A)
+    #             for el in Results[p]:
+    #                 Results[p][el].loc[i] = Ret[p]["Comp"][el]
+
+    #         Results[p + '_prop']['mass'].loc[i] = Ret[p]['Frac']
+
+    #     if Frac_solid is not None and Frac_fluid is not None and i > 0:
+    #         bulk = np.array([Results['liq']['SiO2'].loc[i], Results['liq']['Al2O3'].loc[i], Results['liq']['CaO'].loc[i], Results['liq']['MgO'].loc[i], Results['liq']['FeO'].loc[i], Results['liq']['K2O'].loc[i], Results['liq']['Na2O'].loc[i], Results['liq']['TiO2'].loc[i], Results['liq']['O'].loc[i], Results['liq']['Cr2O3'].loc[i], Results['liq']['H2O'].loc[i]])
+    #         # bulk = Ret['liq']['Comp']
+    #         comp = bulk.copy()
+    #         bulk = 100*comp/sum(comp)
+    #         # print(bulk)
+    #     else:
+    #         bulk = bulk_in
+
+    # return Results
+
+
+def AdiabaticDecompressionMelting(comp = None, T_p_C = None, P_start_kbar = None, P_end_kbar = None, dp_kbar = None, Frac = None):
+    lz = m.lithologies.matthews.klb1()
+    mantle = m.mantle([lz], [1], ['Lz'])
+    T_start_C = mantle.adiabat(P_start_kbar/10, T_p_C)
+    bulk = [comp['SiO2_Liq'], comp['Al2O3_Liq'], comp['CaO_Liq'], comp['MgO_Liq'], comp['FeOt_Liq'], comp['K2O_Liq'], comp['Na2O_Liq'], comp['TiO2_Liq'], comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*comp['FeOt_Liq'] - comp['FeOt_Liq']), comp['Cr2O3_Liq'], comp['H2O_Liq']]
+    
+    if Frac is None:
+        Frac = 0
+
+    Results = MAGEMinCalc.AdiabaticDecompressionMelting(bulk, T_start_C, P_start_kbar, P_end_kbar, dp_kbar)
 
     return Results
 
+    # P_bar = np.linspace(P_start_bar, P_end_bar, round((P_start_bar - P_end_bar)/dp_bar))
+
+    # bulk_in = bulk.copy()
+
+    # Results = {}
+    # Results['Conditions'] = pd.DataFrame(data = np.zeros((len(P_bar), 3)), columns = ['temperature', 'pressure', 's'])
+    # for i in range(len(P_bar)):
+    #     P = P_bar[i]
+    #     if i == 0:
+    #         try:
+    #             Ret = MAGEMinCalc.PT_minimisation(P/1000, float(T_start_C), bulk)
+    #             T = T_start_C
+    #         except:
+    #             return Results
+    #     else:
+    #         try:
+    #             Ret = MAGEMinCalc.PS_minimisation(s, P/1000, float(T), bulk)
+    #             T = Ret['sys']['Temperature']
+    #         except:
+    #             return Results
+
+    #     PhaseList = Ret['sys']['Phase']
+    #     for phase in PhaseList:
+    #         if phase not in list(Results.keys()):
+    #             Results[phase] = pd.DataFrame(data = np.zeros((len(P_bar), 11)), columns = ['SiO2', 'Al2O3', 'CaO', 'MgO', 'FeO', 'K2O', 'Na2O', 'TiO2', 'O', 'Cr2O3', 'H2O'])
+    #             Results[phase + '_prop'] = pd.DataFrame(data = np.zeros((len(P_bar), 1)), columns = ['mass'])
+
+    #     for R in Results['Conditions']:
+    #         if R == 'temperature':
+    #             Results['Conditions'][R].loc[i] = T
+    #         elif R == 'pressure':
+    #             Results['Conditions'][R].loc[i] = P_bar[i]
+    #         else:
+    #             Results['Conditions'][R].loc[i] = Ret['sys']['Entropy']
+
+    #     for p in PhaseList:
+    #         if "Comp" in list(Ret[p].keys()):
+    #             for el in Results[p]:
+    #                 Results[p][el].loc[i] = Ret[p]["Comp"][el]
+
+    #         Results[p + '_prop']['mass'].loc[i] = Ret[p]['Frac']
+
+    #     s = Ret['sys']['Entropy']
+
+    #     bulk = bulk_in.copy()
 # def phaseSat(comp = None, phases = None, T_initial_C = None, T_step_C = None, dt_C = None, P_bar = None, H2O_Liq = None, fO2_buffer = None, fO2_offset = None):
 #     '''
 #     Perform a single crystallisation calculation in MELTS. WARNING! Running this function directly from the command land/jupyter notebook will initiate the MELTS C library in the main python process. Once this has been initiated the MELTS C library cannot be re-loaded and failures during the calculation will likely cause a terminal error to occur.
