@@ -80,7 +80,12 @@ def findLiq(P_bar = None, T_C_init = None, comp = None): #, fO2_buffer = None, f
     if comp is None:
         raise Exception("No composition specified")
     
-    T_Liq = MAGEMinCalc.findliq(comp, P_bar/1000, T_C_init)
+    if type(comp) == dict:
+        bulk = [comp['SiO2_Liq'], comp['Al2O3_Liq'], comp['CaO_Liq'], comp['MgO_Liq'], comp['FeOt_Liq'], comp['K2O_Liq'], comp['Na2O_Liq'], comp['TiO2_Liq'], comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*comp['FeOt_Liq'] - comp['FeOt_Liq']), comp['Cr2O3_Liq'], comp['H2O_Liq']]
+        T_Liq = MAGEMinCalc.findliq(bulk, P_bar/1000, T_C_init)
+    else:
+        T_Liq = MAGEMinCalc.findliq(comp, P_bar/1000, T_C_init)
+        
     return T_Liq
 
     # else:
