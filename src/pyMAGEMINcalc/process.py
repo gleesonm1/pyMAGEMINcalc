@@ -2,9 +2,11 @@ import numpy as np
 import pandas as pd
 import Thermobar as pt
 import julia
-import time
+# import time
 import pyMelt as m
-from scipy.optimize import fsolve
+# from scipy.optimize import fsolve
+from julia.api import Julia
+jl = Julia(compiled_modules=False)
 from julia import MAGEMinCalc
 
 def equilibrate(Model = None, P_bar = None, T_C = None, comp = None, fO2_buffer = None, fO2_offset = None):
@@ -12,9 +14,7 @@ def equilibrate(Model = None, P_bar = None, T_C = None, comp = None, fO2_buffer 
 
     if comp is None:
         raise Exception("No composition specified")
-
-    if comp is None:
-        raise Exception("No composition specified")
+        
     else:
         if fO2_buffer is not None:
             new_bulk = pd.DataFrame(comp, index = [0])
@@ -180,7 +180,7 @@ def findLiq(P_bar = None, T_C_init = None, comp = None): #, fO2_buffer = None, f
         # return T_Liq
 
 
-def path(comp = None, Frac_solid = None, Frac_fluid = None, T_C = None, T_path_C = None, T_start_C = None, T_end_C = None, dt_C = None, P_bar = None, P_path_bar = None, P_start_bar = None, P_end_bar = None, dp_bar = None, find_liquidus = None, fO2_buffer = None, fO2_offset = None):
+def path(comp = None, Frac_solid = None, phases = None, Frac_fluid = None, T_C = None, T_min_C = None, T_path_C = None, T_start_C = None, T_end_C = None, dt_C = None, P_bar = None, P_path_bar = None, P_start_bar = None, P_end_bar = None, dp_bar = None, find_liquidus = None, fO2_buffer = None, fO2_offset = None):
     '''
     Perform a single  calculation in MELTS. WARNING! Running this function directly from the command land/jupyter notebook will initiate the MELTS C library in the main python process. Once this has been initiated the MELTS C library cannot be re-loaded and failures during the calculation will likely cause a terminal error to occur.
 
@@ -197,6 +197,9 @@ def path(comp = None, Frac_solid = None, Frac_fluid = None, T_C = None, T_path_C
 
     T_C: float
         Calculation temperature - typically used when calculations are performed at a fixed T (e.g.,isothermal degassing).
+
+    T_min_C: float
+        Temperature below the liquidus to calculate.
 
     T_path_C: np.ndarray
         If a specified temperature path is to be used, T_path_C will be used to determine the T at each step of the model. If 2D, this indicates that multiple calculations with different T_path_C arrays are to be performed.
@@ -286,6 +289,8 @@ melt
                 return Results
 
         T_start_C = T_Liq
+        if T_min_C is not None:
+            T_end_C = T_Liq - T_min_C
 
         # if fO2_buffer is not None:
         #     new_bulk = pd.DataFrame(comp, index = [0])
@@ -340,10 +345,16 @@ melt
     if type(P) == np.ndarray and type(T) != np.ndarray:
         T = np.zeros(len(P)) + T
 
-    if Frac_solid is not None:
-        Results = MAGEMinCalc.path(bulk, T, P/1000, 1)
+    if phases is None:
+        if Frac_solid is not None:
+            Results = MAGEMinCalc.path(bulk, T, P/1000, 1, 0)
+        else:
+            Results = MAGEMinCalc.path(bulk, T, P/1000, 0, 0)
     else:
-        Results = MAGEMinCalc.path(bulk, T, P/1000, 0)
+        if Frac_solid is not None:
+            Results = MAGEMinCalc.path(bulk, T, P/1000, 1, phases)
+        else:
+            Results = MAGEMinCalc.path(bulk, T, P/1000, 0, phases)
 
     return Results
     # if type(T) == np.ndarray:
@@ -432,7 +443,7 @@ def AdiabaticDecompressionMelting(comp = None, T_p_C = None, P_start_kbar = None
     if Frac is None:
         Frac = 0
 
-    Results = MAGEMinCalc.AdiabaticDecompressionMelting(bulk, T_start_C, P_start_kbar, P_end_kbar, dp_kbar)
+    Results = MAGEMinCalc.AdiabaticDecompressionMelting(bulk, T_start_C, P_start_kbar, P_end_kbar, dp_kbar, Frac)
 
     return Results
 
