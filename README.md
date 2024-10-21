@@ -26,7 +26,7 @@ Currently, users can:
 1. Search for melt liquidus temperatures.
 2. Run isobaric and polybaric crystallisation models.
 
-# Integration with pyMELTScalc
-pyMAGEMINcalc can be used individually or in combination with pyMELTScalc (github.com/gleesonm1/pyMELTScalc). While the pyMELTScalc package is designed to facilitate calculations using the MELTS thermodynamic models, the underlying code can also be used to call pyMAGEMINcalc calculations, allowing these calculations to be performed in parallel and significantly reducing computational time when multiple calculations are performed.
+# Integration with PetThermoTools
+pyMAGEMINcalc can be used individually or in combination with PetThermoTools (github.com/gleesonm1/PetThermoTools). While the PetThermoTools package is primarily designed to facilitate calculations using the MELTS thermodynamic models, the underlying code can also be used to call pyMAGEMINcalc calculations, allowing these calculations to be performed in parallel and significantly reducing computational time when multiple calculations are performed.
 
-To learn how pyMAGEMINcalc can be run through pyMELTScalc please see the README at github.com/gleesonm1/pyMELTEcalc.
+To learn how pyMAGEMINcalc can be run through PetThermoTools please see the README at github.com/gleesonm1/PetThermoTools.

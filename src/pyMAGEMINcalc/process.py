@@ -9,7 +9,17 @@ from julia.api import Julia
 jl = Julia(compiled_modules=False)
 from julia import MAGEMinCalc
 
-def equilibrate(Model = None, P_bar = None, T_C = None, comp = None, fO2_buffer = None, fO2_offset = None):
+def equilibrate_multi(P_bar = None, T_C = None, comp = None):
+    Results = pd.DataFrame()
+
+    comp['O'] = comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*comp['FeOt_Liq'] - comp['FeOt_Liq'])
+
+    bulk = comp[['SiO2_Liq', 'Al2O3_Liq', 'CaO_Liq', 'MgO_Liq', 'FeOt_Liq', 'K2O_Liq', 'Na2O_Liq', 'TiO2_Liq', 'O', 'Cr2O3_Liq', 'H2O_Liq']].astype(float).values
+
+    Results = MAGEMinCalc.equilibrate(bulk, P_bar/1000.0, T_C)
+    return Results
+
+def equilibrate(P_bar = None, T_C = None, comp = None, fO2_buffer = None, fO2_offset = None):
     Results = pd.DataFrame()
 
     if comp is None:
