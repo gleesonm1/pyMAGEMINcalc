@@ -30,7 +30,7 @@ setup(
     },
     install_requires=[
             'pandas',
-            'numpy',
+            'numpy<2',
             'matplotlib',
             'scikit-learn',
             'scipy'
@@ -40,5 +40,5 @@ setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.7',
+    python_requires='>=3.9',
 )

@@ -9,6 +9,12 @@ from julia.api import Julia
 jl = Julia(compiled_modules=False)
 from julia import MAGEMinCalc
 
+def findLiq_multi(P_bar = None, T_initial_C = None, comp = None):
+    comp['O'] = comp['Fe3Fet_Liq']*(((159.59/2)/71.844)*comp['FeOt_Liq'] - comp['FeOt_Liq'])
+    bulk = comp[['SiO2_Liq', 'Al2O3_Liq', 'CaO_Liq', 'MgO_Liq', 'FeOt_Liq', 'K2O_Liq', 'Na2O_Liq', 'TiO2_Liq', 'O', 'Cr2O3_Liq', 'H2O_Liq']].astype(float).values
+    T_C = MAGEMinCalc.findLiq_multi(bulk, P_bar/1000.0, T_initial_C)
+    return T_C
+
 def equilibrate_multi(P_bar = None, T_C = None, comp = None):
     Results = pd.DataFrame()
 
